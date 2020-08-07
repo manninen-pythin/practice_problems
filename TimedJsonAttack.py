@@ -3,6 +3,7 @@ import sys
 import itertools
 import string
 import json
+from datetime import datetime
 
 
 class Connect:
@@ -27,7 +28,6 @@ class Connect:
                     response_dict = decode_json(client_socket.recv(1024).decode())
                     if response_dict['result'] == 'Wrong password!':
                         self.login = login
-                        print('Login found! Login:', login)
                         self.login_found = True
                         break
 
@@ -38,9 +38,12 @@ class Connect:
                         password = p
                     else:
                         password = ''.join(self.found_letters) + p
+                    start = datetime.now()
                     client_socket.send(convert_json(self.login, password).encode())
                     response_dict = decode_json(client_socket.recv(1024).decode())
-                    if response_dict["result"] == 'Exception happened during login':
+                    finish = datetime.now()
+                    difference = (finish - start).total_seconds()
+                    if difference > 0.1:
                         self.found_letters.append(p)
                         break
                     if response_dict["result"] == 'Connection success!':
